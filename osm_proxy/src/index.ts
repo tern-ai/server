@@ -58,7 +58,7 @@ async function apiKeyAuth(c: Context, next: Next): Promise<Response | void> {
 app.use("*", apiKeyAuth);
 
 app.get(
-    "/data",
+    "/osm",
     withCache(async (c: Context) => {
         // TODO: This is a stub. git submodules need to be set up so we can
         // import the existing OSM code.
@@ -66,8 +66,10 @@ app.get(
     })
 );
 
+const port = Number(process.env.PORT) || Number(DEFAULT_PORT);
 serve(app, () => {
-    return { port: Number(process.env.PORT) || Number(DEFAULT_PORT) };
+    console.log("Starting server on port", port);
+    return { port };
 });
 
 export default app;
