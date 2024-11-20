@@ -1,14 +1,17 @@
-import express from 'express';
-import fetch from 'node-fetch';
+import {express, Request, Response} from 'express';
 import dotenv from 'dotenv';
 import { createClient } from 'redis';
 
+const DEFAULT_PORT = 3000;
+const DEFAULT_REDIS_URL = 'redis://localhost:6379';
+
+// Read env vars
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || DEFAULT_PORT;
 const redisClient = createClient({
-    url: process.env.REDIS_URL
+    url: process.env.REDIS_URL || DEFAULT_REDIS_URL,
 });
 
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
@@ -17,17 +20,18 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
     await redisClient.connect();
 })();
 
-    const SERVICE_API_KEY = process.env.SERVICE_API_KEY;
-
 app.use(express.json());
 
-// Authentication Middleware
-app.use((req, res, next) => {
-    const apiKey = req.header('x-api-key');
-    if (apiKey !== SERVICE_API_KEY) {
-    res.status(401).send('Unauthorized');
-    return;
+// auth
+// TODO: Disable for local runs
+const TERN_API_KEY = process.env.TERN_API_KEY || '';
+app.use((req: Request, res: Response, next: any) => {
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey !== TERN_API_KEY) {
+        res.status(401).send('Unauthorized: set x-api-key header');
+        return;
     }
+    // Continue to route handling
     next();
 });
 
