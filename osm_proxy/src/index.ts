@@ -12,9 +12,20 @@ dotenv.config();
 
 const app = new Hono();
 
+// TODO: Move all this caching logic to a separate file
+const redisUrl = process.env.REDIS_URL || DEFAULT_REDIS_URL;
 const redisClient = createClient({
-    url: process.env.REDIS_URL || DEFAULT_REDIS_URL,
+    url: redisUrl,
 });
+redisClient
+.connect()
+.then(() => {
+    console.log("Connected to Redis at ", redisUrl);
+})
+.catch((err) => {
+    console.error("Error connecting to Redis", err);
+});
+
 // Global error handler
 redisClient.on("error", (err) => console.error("Redis Client Error", err));
 
@@ -22,10 +33,19 @@ redisClient.on("error", (err) => console.error("Redis Client Error", err));
 const withCache = (handler: Handler, keyFn = (url: string) => url) => {
     return async (c: Context, next: Next) => {
         const key = keyFn(c.req.url);
-        var cached: string | null = await redisClient.get(key);
+        const cached = await redisClient
+        .get(key)
+        .then((res) => {
+            console.debug(`Cache ${res ? "hit" : "miss"} for key ${key}`);
+            return res;
+        })
+        .catch((err) => {
+            console.error(`Error fetching key ${key} from Redis: ${err}`);
+        });
+
         const resp = cached ? new Response(cached) : await handler(c, next);
 
-        if (!cached) {
+        if (!cached && resp.status === 200) {
             // Async
             redisClient
             .set(key, JSON.stringify(resp.body))
